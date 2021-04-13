@@ -1,0 +1,1066 @@
+scilla_version 0
+
+(***************************************************)
+(*               Associated library                *)
+(***************************************************)
+import IntUtils BoolUtils
+library Staking
+
+let one_msg = 
+  fun (msg : Message) => 
+  let nil_msg = Nil {Message} in
+  Cons {Message} msg nil_msg
+
+let two_msgs =
+fun (msg1 : Message) =>
+fun (msg2 : Message) =>
+  let msgs_tmp = one_msg msg2 in
+  Cons {Message} msg1 msgs_tmp
+
+let blk_leq =
+  fun (blk1 : BNum) =>
+  fun (blk2 : BNum) =>
+    let bc1 = builtin blt blk1 blk2 in 
+    let bc2 = builtin eq blk1 blk2 in 
+    orb bc1 bc2
+    
+let uint128_leq =
+  fun (blk1 : Uint128) =>
+  fun (blk2 : Uint128) =>
+    let bc1 = builtin lt blk1 blk2 in 
+    let bc2 = builtin eq blk1 blk2 in 
+    orb bc1 bc2
+    
+(*fixed numbers for formulas*)
+let hundred = Uint128 100
+let week = Uint128 7
+let year = Uint128 365
+let zero = Uint128 0
+let two = Uint128 2
+let false = False
+let true = True
+
+let uintOne = Uint128 1
+let intZero = Int32 0
+let intOne = Int32 1
+
+let get_val =
+  fun (some_val: Option Uint128) =>
+    match some_val with
+    | Some val => val
+    | None => zero
+    end
+
+(*Status back*)
+let carbAddressUpdated = Int32 1
+let rateChanged = Int32 2
+let culModeChanged = Int32 3
+let cycleChanged = Int32 4
+let unstakeRateChanged = Int32 5
+let penaltyChanged = Int32 6
+let rewardBlocksChange = Int32 7
+let intializeContract = Int32 8
+let pausedChange = Int32 9
+let blocksNotReached = Int32 10
+let rewardsAwarded = Int32 11
+
+(* Error events *)
+type Error =
+| CodeIsNotSender
+| CodeInsufficientCarbs
+| CodeExceedAvailable
+| CodeNotStaker
+| CodeBlockNotReach
+| CodeNoPending
+| CodeWrongToken
+| CodeContractPaused
+| CodeNotWhitelisted
+| CodeLessThanMinimumStake
+
+let make_error =
+  fun (result : Error) =>
+    let result_code = 
+      match result with
+      | CodeIsNotSender              => Int32 -1
+      | CodeInsufficientCarbs     => Int32 -2
+      | CodeExceedAvailable => Int32 -3
+      | CodeNotStaker => Int32 -4
+      | CodeBlockNotReach => Int32 -5
+      | CodeNoPending => Int32 -6
+      | CodeWrongToken => Int32 -7
+      | CodeContractPaused => Int32 -8
+      | CodeNotWhitelisted => Int32 -9
+      | CodeLessThanMinimumStake => Int32 -10
+      end
+    in
+    { _exception : "Error"; code : result_code }
+  
+contract CarbonStake
+(
+  initial_owner : ByStr20,
+  carbonContract : ByStr20
+)
+(*Used for ownership change*)
+field current_owner : ByStr20 = initial_owner
+field pending_owner : Option ByStr20 = None {ByStr20}
+field carb_addr : ByStr20 = carbonContract
+field carbonAvailable : Uint128 = Uint128 0
+
+(*Add stakers*)
+field stakers : Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field removeStaker: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field removeBlock : Map ByStr20 BNum = Emp ByStr20 BNum
+field totalStaked : Uint128 = Uint128 0
+field totalStakers : Uint128 = Uint128 0
+field minimumStake : Uint128 = Uint128 5000000000
+
+(*Cycle related*)
+field cycleCount : Map ByStr20 Int32 = Emp ByStr20 Int32
+field cycleAmount : Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field rewardCount : Int32 = Int32 10
+field rewardRate : Uint128 = Uint128 1
+
+
+field automaticCul : Map ByStr20 Bool = Emp ByStr20 Bool
+field pending_carbs : Map ByStr20 Uint128 = Emp ByStr20 Uint128
+
+field whitelistAddr : Map ByStr20 ByStr20 = Emp ByStr20 ByStr20
+field removeWhitelist : Bool = False
+(*Unstake related*)
+field unstakePercent : Uint128 = Uint128 7
+field rewardPercent : Uint128 = Uint128 15
+field remove_bnum : Uint64 = Uint64 16000
+field penalty : Uint128 = Uint128 10
+field daily : Bool = True
+field unstakeDays : Uint128 = Uint128 10
+field rewardPerStaker : Uint128 = Uint128 0
+field totalUnstaked : Uint128 = Uint128 0
+
+(*Contract Related*)
+field pauseStake : Bool = False
+field rewardBlocks : BNum = BNum 0
+field lastReward : BNum = BNum 0
+field rewardTime : Uint128 = Uint128 1800
+
+procedure ThrowError(err : Error)
+  e = make_error err;
+  throw e
+end
+
+procedure isWhitelisted(addr: ByStr20)
+  isWhitelisted <- exists whitelistAddr[addr];
+  match isWhitelisted with
+    | False =>
+      err = CodeNotWhitelisted;
+      ThrowError err
+    | True =>
+  end
+end
+
+procedure minimumStake (amount: Uint128)
+  min <- minimumStake;
+  isMin = builtin lt amount min;
+  match isMin with
+    | True =>
+      err = CodeLessThanMinimumStake;
+      ThrowError err
+    | False =>
+  end
+end
+
+procedure addRewards(staker: Pair ByStr20 Uint128)
+  match staker with
+    | Pair key value  =>
+      staking <- stakers[key];
+      daily <- daily;
+      totalStake <- totalStaked;
+      pending <- pending_carbs[key];
+      culmulative <- automaticCul[key];
+      current_supply <- carbonAvailable;
+      balance = get_val staking;
+      cycle <- cycleCount[key];
+      match cycle with
+        | Some cycle =>
+          newCycle = builtin add cycle intOne;
+          cycleCount[key] := newCycle
+        | None =>
+      end;
+      onePercent = builtin div balance hundred;
+      rewardRate <- rewardPercent;
+      yearRate = builtin mul onePercent rewardRate;
+      dailyReward = builtin div yearRate year;
+      match daily with
+        | True =>
+          (*Getting rid of the option datatype*)
+          match culmulative with
+            | Some culmulative =>
+              (*Check if culmulative is on*)
+              match culmulative with
+                | True =>
+                  newAmount = builtin add balance dailyReward;
+                  stakers[key] := newAmount
+                | False =>
+                  (*Reduce total staked*)
+                  reducedAmount = builtin sub totalStake dailyReward;
+                  totalStaked := reducedAmount;
+                  match pending with
+                    | Some pending =>
+                      newAmount = builtin add pending dailyReward;
+                      pending_carbs[key] := newAmount
+                    | None =>
+                      pending_carbs[key] := dailyReward
+                  end
+              end
+            | None =>
+          end
+        | False =>
+          weeklyReward = builtin mul dailyReward week;
+          match culmulative with
+            | Some culmulative =>
+              match culmulative with
+                | True =>
+                  newAmount = builtin add balance weeklyReward;
+                  stakers[key] := newAmount
+                | False =>
+                  (*Reduce total stake*)
+                  reducedAmount = builtin sub totalStake weeklyReward;
+                  totalStaked := reducedAmount;
+                  match pending with
+                    | Some pending =>
+                      newAmount = builtin add pending weeklyReward;
+                      pending_carbs[key] := newAmount
+                    | None =>
+                      pending_carbs[key] := weeklyReward
+                  end
+              end
+            | None =>
+          end
+      end
+  end
+end
+
+procedure rewardCycle(staker: Pair ByStr20 Uint128)
+  match staker with
+    | Pair key value  =>
+      baseAmount <- cycleAmount[key];
+      currentCount <- cycleCount[key];
+      rewardCounter <- rewardCount;
+      ownerCarbs <- carbonAvailable;
+      pending <- pending_carbs[key];
+      stake <- stakers[key];
+      rate <- rewardRate;
+      match currentCount with
+        | Some currentCount =>
+          isEqual = builtin eq currentCount rewardCounter;
+          match isEqual with
+            | True =>
+              match baseAmount with
+                | Some baseAmount =>
+                  onePercent = builtin div baseAmount hundred;
+                  (*Reduce owner carbon rate*)
+                  reduceOwner =  builtin sub ownerCarbs onePercent;
+                  carbonAvailable := reduceOwner;
+                  match pending with
+                    | Some pending =>
+                      newAmount = builtin add pending onePercent;
+                      pending_carbs[key] := newAmount;
+                      cycleCount[key] := intZero;
+                      match stake with
+                        | Some stake => 
+                          cycleAmount[key] := stake
+                        | None =>
+                      end
+                    | None =>
+                      pending_carbs[key] := onePercent;
+                      cycleCount[key] := intZero;
+                      match stake with
+                        | Some stake => 
+                          cycleAmount[key] := stake
+                        | None =>
+                      end
+                  end
+                | None =>
+              end
+            | False =>
+          end
+        | None =>
+      end
+  end
+end
+
+procedure addUnstakeReward(staker: Pair ByStr20 Uint128)
+  match staker with
+    | Pair key value  =>
+      staking <- removeStaker[key];
+      daily <- daily;
+      pending <- pending_carbs[key];
+      ownerCarbs <- carbonAvailable;
+      balance = get_val staking;
+      onePercent = builtin div balance hundred;
+      rewardRate <- unstakePercent;
+      yearRate = builtin mul onePercent rewardRate;
+      dailyReward = builtin div yearRate year;
+      match daily with
+        | True =>
+          (*Reduce owner carbon rate*)
+          reduceOwner =  builtin sub ownerCarbs dailyReward;
+          carbonAvailable := reduceOwner;
+          match pending with
+            | Some pending =>
+              newAmount = builtin add pending dailyReward;
+              pending_carbs[key] := newAmount
+            | None =>
+              pending_carbs[key] := dailyReward
+          end
+        | False =>
+          weeklyReward = builtin mul dailyReward week;
+          (*Reduce owner carbon rate*)
+          reduceOwner =  builtin sub ownerCarbs weeklyReward;
+          carbonAvailable := reduceOwner;
+          match pending with
+            | Some pending =>
+              newAmount = builtin add pending weeklyReward;
+              pending_carbs[key] := newAmount
+            | None =>
+              pending_carbs[key] := weeklyReward
+          end
+      end
+  end
+end
+
+procedure penaltyToStakers(staker: Pair ByStr20 Uint128)
+  match staker with
+    | Pair key value  =>
+      pending <- pending_carbs[key];
+      reward <- rewardPerStaker;
+      match pending with
+        | Some pending =>
+          newAmount = builtin add pending reward;
+          pending_carbs[key] := newAmount
+        | None =>
+          pending_carbs[key] := reward
+      end
+  end
+end
+
+transition initializeContract()
+  owner <- current_owner;
+  currentValue <- rewardBlocks;
+  lastRewarded <- lastReward;
+  rewardTimeBlock <- rewardTime;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      currentBlock <- & BLOCKNUMBER;
+      newRewardBlock = builtin badd currentBlock rewardTimeBlock;
+      rewardBlocks := newRewardBlock;
+      lastReward := currentBlock;
+      msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+          code : intializeContract};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+transition addWhitelistAddress(address: ByStr20)
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+    | True =>
+      whitelistAddr[address] := address
+  end
+end
+
+transition removeWhitelistAddress(address: ByStr20)
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+    | True =>
+      delete whitelistAddr[address]
+  end
+end
+
+transition changeRewardBlocks(block: Uint128)
+  owner <- current_owner;
+  currentValue <- rewardTime;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      rewardTime := block;
+      msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+          code : rewardBlocksChange};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+transition pauseContract()
+  owner <- current_owner;
+  currentValue <- pauseStake;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      match currentValue with
+        | True =>
+        | False=>
+          pauseStake := true;
+          msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+              code : pausedChange};
+          msgs = one_msg msg;
+          send msgs;
+          event_paused_contract = { _eventname: "contractPaused"; paused: true};
+          event event_paused_contract
+      end
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+transition unpauseContract()
+  owner <- current_owner;
+  currentValue <- pauseStake;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      match currentValue with
+        | True =>
+          pauseStake := false;
+          msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+              code : pausedChange};
+          msgs = one_msg msg;
+          send msgs;
+          event_paused_contract = { _eventname: "contractPaused"; paused: false};
+          event event_paused_contract
+        | False=>
+      end
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+transition rewardAll()
+  owner <- current_owner;
+  currentBlk <- & BLOCKNUMBER;
+  rewardBlock <- rewardBlocks;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+    | True =>
+      isBlockHigher = blk_leq currentBlk rewardBlock;
+      match isBlockHigher with
+        | True =>
+          (*Not enough blocks yet*)
+          msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+              code : blocksNotReached};
+          msgs = one_msg msg;
+          send msgs
+        | False =>
+          currentStake <- totalStaked;
+          currentUnstake <- totalUnstaked;
+          carbonAdded <- carbonAvailable;
+          stakeRate <- rewardPercent;
+          unstakeRate <- unstakePercent;
+          currentIteration <- daily;
+          
+          onePercentStake = builtin div currentStake hundred;
+          onePercentUnstake = builtin div currentUnstake hundred;
+          stakeRatePerYear = builtin mul onePercentStake stakeRate;
+          unstakeRatePerYear = builtin mul onePercentUnstake unstakeRate;
+          stakeDailyRate = builtin div stakeRatePerYear year;
+          unstakeDailyRate = builtin div unstakeRatePerYear year;
+          stakesCost = builtin add unstakeDailyRate stakeDailyRate;
+          totalRequiredCarbon = builtin add stakesCost onePercentStake;
+          
+          match currentIteration with
+            | True =>
+              (*If daily Rate*)
+              isCarbonEnough = builtin lt carbonAdded totalRequiredCarbon;
+              match isCarbonEnough with
+                | True =>
+                  err = CodeInsufficientCarbs;
+                  ThrowError err
+                | False =>
+                  (*Staking rewards*)
+                  stake <- stakers;
+                  staker_list = builtin to_list stake;
+                  newStake = builtin add currentStake stakeDailyRate;
+                  reduceOwner = builtin sub carbonAdded stakeDailyRate;
+                  totalStaked := newStake;
+                  forall staker_list addRewards;
+                  
+                  (*Cycle rewards*)
+                  cycle <- cycleAmount;
+                  cycleAmount_list = builtin to_list cycle;
+                  (*Have to ensure there is enough carbon in contract*)
+                  forall cycleAmount_list rewardCycle;
+                  
+                  (*Unstaking Rewards*)
+                  unstake <- removeStaker;
+                  unstaker_list = builtin to_list unstake;
+                  ureduceOwner = builtin sub reduceOwner unstakeDailyRate;
+                  carbonAvailable := ureduceOwner;
+                  forall unstaker_list addUnstakeReward;
+                  
+                  currentBlockCycle <- rewardBlocks;
+                  rewardTimeBlock <- rewardTime;
+                  newRewardBlock = builtin badd currentBlockCycle rewardTimeBlock;
+                  rewardBlocks := newRewardBlock;
+                  lastReward := currentBlockCycle;
+                  
+                  msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+                      code : rewardsAwarded};
+                  msgs = one_msg msg;
+                  send msgs
+              end
+            | False =>
+              (*If weekly rate*)
+              stakeWeeklyRate = builtin mul stakeDailyRate week;
+              unstakeWeeklyRate = builtin mul unstakeDailyRate week;
+              stakeTotalRequired = builtin add stakeWeeklyRate unstakeWeeklyRate;
+              totalCarbRequired = builtin add onePercentStake stakeTotalRequired;
+              
+              
+              isCarbonEnough = builtin lt carbonAdded totalCarbRequired;
+              
+              match isCarbonEnough with
+                | True =>
+                  err = CodeInsufficientCarbs;
+                  ThrowError err
+                | False =>
+                  (*Stakers*)
+                  stake <- stakers;
+                  staker_list = builtin to_list stake;
+                  newStake = builtin add currentStake stakeWeeklyRate;
+                  reduceOwner = builtin sub carbonAdded stakeWeeklyRate;
+                  totalStaked := newStake;
+                  forall staker_list addRewards;
+                  
+                  (*Cycle*)
+                  cycle <- cycleAmount;
+                  cycleAmount_list = builtin to_list cycle;
+                  (*Have to ensure there is enough carbon in contract*)
+                  forall cycleAmount_list rewardCycle;
+                  
+                  (*Unstake*)
+                  unstake <- removeStaker;
+                  staker_list = builtin to_list unstake;
+                  ureduceOwner = builtin sub reduceOwner unstakeWeeklyRate;
+                  carbonAvailable := ureduceOwner;
+                  forall staker_list addUnstakeReward;
+                  
+                  currentBlockCycle <- rewardBlocks;
+                  rewardTimeBlock <- rewardTime;
+                  newRewardBlock = builtin badd currentBlockCycle rewardTimeBlock;
+                  rewardBlocks := newRewardBlock;
+                  lastReward := currentBlockCycle;
+                  
+                  msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+                      code : rewardsAwarded};
+                  msgs = one_msg msg;
+                  send msgs
+                  
+              end
+          end
+      end
+
+      
+  end
+end
+
+
+
+
+(*Add a transition for sender to change their culmulative boolean*)
+transition changeCulmulative()
+  cul <- automaticCul[_sender];
+  match cul with
+    | Some cul =>
+      match cul with
+        | True =>
+          automaticCul[_sender] := false;
+          msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+              code : culModeChanged};
+          msgs = one_msg msg;
+          send msgs
+        | False =>
+          automaticCul[_sender] := true;
+          msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+              code : culModeChanged};
+          msgs = one_msg msg;
+          send msgs
+      end
+    | None =>
+      (*Not a staker*)
+      err = CodeNotStaker;
+      ThrowError err
+  end
+end
+
+
+
+(*Add a remove pending*)
+transition withdrawPending()
+  pending <- pending_carbs[_sender];
+  carbAddr <- carb_addr;
+  match pending with
+    | Some pending =>
+      delete pending_carbs[_sender];
+      msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: zero;
+              to: _sender; amount: pending};
+      msgs = one_msg msg;
+      send msgs
+    | None =>
+    (*No pending carbs*)
+    err = CodeNoPending;
+    ThrowError err
+  end
+end
+
+
+transition removeStake(amount: Uint128)
+  accBalance <- stakers[_sender];
+  total_staked <- totalStaked;
+  total_unstaked <- totalUnstaked;
+  match accBalance with
+    | Some accBalance =>
+      fullWithdrawal = builtin lt amount accBalance;
+      match fullWithdrawal with
+        | True =>
+          checkPending <- removeStaker[_sender];
+          newStaked = builtin sub total_staked amount;
+          totalStaked := newStaked;
+          newUnstaked = builtin add total_unstaked amount;
+          totalUnstaked := newUnstaked;
+          match checkPending with
+            | Some checkPending =>
+              (*If theres is any unstaking amount add into the pending and reset the block time*)
+              newAmount = builtin add checkPending amount;
+              removeStaker[_sender] := newAmount;
+              remove_block <- remove_bnum;
+              current_block <- & BLOCKNUMBER;
+              block_required = builtin badd current_block remove_block;
+              removeBlock[_sender] := block_required;
+              newBalance = builtin sub accBalance amount;
+              stakers[_sender] := newBalance;
+              cycleAmount[_sender] := newBalance;
+              cycleCount[_sender] := intZero
+            | None =>
+              removeStaker[_sender] := amount;
+              remove_block <- remove_bnum;
+              current_block <- & BLOCKNUMBER;
+              block_required = builtin badd current_block remove_block;
+              removeBlock[_sender] := block_required;
+              newBalance = builtin sub accBalance amount;
+              stakers[_sender] := newBalance;
+              cycleAmount[_sender] := newBalance;
+              cycleCount[_sender] := intZero;
+              current_stake <- totalStakers;
+              new_stakers = builtin sub current_stake uintOne;
+              totalStakers := new_stakers
+          end
+        | False =>
+          checkPending <- removeStaker[_sender];
+          newStaked = builtin sub total_staked accBalance;
+          totalStaked := newStaked;
+          newUnstaked = builtin add total_unstaked amount;
+          totalUnstaked := newUnstaked;
+          match checkPending with
+            | Some checkPending =>
+              newAmount = builtin add checkPending accBalance;
+              removeStaker[_sender] := newAmount;
+              remove_block <- remove_bnum;
+              current_block <- & BLOCKNUMBER;
+              block_required = builtin badd current_block remove_block;
+              removeBlock[_sender] := block_required;
+              delete stakers[_sender];
+              delete cycleAmount[_sender];
+              delete cycleCount[_sender]
+              
+            | None =>
+              removeStaker[_sender] := accBalance;
+              remove_block <- remove_bnum;
+              current_block <- & BLOCKNUMBER;
+              block_required = builtin badd current_block remove_block;
+              removeBlock[_sender] := block_required;
+              delete stakers[_sender];
+              delete cycleAmount[_sender];
+              delete cycleCount[_sender]
+          end
+      end
+    | None =>
+      err = CodeNotStaker;
+      ThrowError err
+  end
+end
+
+transition withdrawStake()
+  current_block <- & BLOCKNUMBER;
+  blocks_required <- removeBlock[_sender];
+  carbAddr <- carb_addr;
+  total_unstake <- totalUnstaked;
+  match blocks_required with
+    | None =>
+    | Some blocks_required =>
+      is_more = blk_leq blocks_required current_block;
+      match is_more with
+        | True =>
+          (*pass withdrawal*)
+          amount <- removeStaker[_sender];
+          match amount with
+            | None =>
+            | Some amount =>
+              newUnstaked = builtin sub total_unstake amount;
+              totalUnstaked := newUnstaked;
+              msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: Uint128 0;
+                      to: _sender; amount: amount};
+              msgs = one_msg msg;
+              send msgs;
+              delete removeBlock[_sender];
+              delete removeStaker[_sender]
+          end
+        | False =>
+          (*Reject as block time is not reach*)
+          err = CodeBlockNotReach;
+          ThrowError err
+      end
+  end
+end
+
+transition instantWithdrawal()
+  carbAddr <- carb_addr;
+  rate <- rewardPercent;
+  total_unstake <- totalUnstaked;
+  penaltyRate <- penalty;
+  days <- unstakeDays;
+  number_of_stakers <- totalStakers;
+  pool <- carbonAvailable;
+  amount <- removeStaker[_sender];
+  match amount with
+    | None =>
+    | Some amount =>
+      onePercent = builtin div amount hundred;
+      penaltyFee = builtin mul onePercent penaltyRate;
+      apyRate = builtin mul onePercent rate;
+      dailyRate = builtin div apyRate year;
+      unbondFee = builtin mul dailyRate days;
+      totalPenalty = builtin add penaltyFee unbondFee;
+      returnedAmount = builtin sub amount totalPenalty;
+      
+      perStaker = builtin div totalPenalty number_of_stakers;
+      rewardPerStaker := perStaker;
+      stake <- stakers;
+      staker_list = builtin to_list stake;
+      forall staker_list penaltyToStakers;
+      newUnstaked = builtin sub total_unstake amount;
+      totalUnstaked := newUnstaked;
+      msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: Uint128 0;
+              to: _sender; amount: returnedAmount};
+      msgs = one_msg msg;
+      send msgs;
+      delete removeBlock[_sender];
+      delete removeStaker[_sender]
+  end
+end
+
+
+transition ownerWithdrawAdded (amount: Uint128)
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      ownerCarbs <- carbonAvailable;
+      carbAddr <- carb_addr;
+      exceedAvailable = builtin lt ownerCarbs amount;
+      match exceedAvailable with
+        | True =>
+          msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: zero;
+                  to: owner; amount: amount};
+          msgs = one_msg msg;
+          send msgs;
+          newAmount = builtin sub ownerCarbs amount;
+          carbonAvailable := newAmount
+        | False =>
+          (*Exceed available*)
+          err = CodeExceedAvailable;
+          ThrowError err
+      end
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+transition changeCycleCount (cycle: Int32)
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      rewardCount := cycle;
+      msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+              code : cycleChanged};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+transition changeUnstakeRate (rate: Uint128)
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      unstakePercent := rate;
+      msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+              code : unstakeRateChanged};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+transition changePenalty (rate: Uint128, days: Uint128)
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      penalty := rate;
+      unstakeDays := days;
+      msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+              code : penaltyChanged};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+transition changeRewardPercent (rate: Uint128)
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      rewardPercent := rate;
+      msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+              code : rateChanged};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+transition removeWhitelist ()
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+    | True =>
+      wl <- removeWhitelist;
+      match wl with
+        | True =>
+          removeWhitelist := false
+        | False =>
+          removeWhitelist := true
+      end
+  end
+
+end
+
+transition changeDaily ()
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      isDaily <- daily;
+      match isDaily with
+        | True =>
+          daily := false;
+          msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+              code : rateChanged};
+          msgs = one_msg msg;
+          send msgs
+        | False =>
+          daily := true;
+          msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+                  code : rateChanged};
+          msgs = one_msg msg;
+          send msgs
+      end
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+
+(*When Carbon is sent to contract address*)
+transition RecipientAcceptTransfer(
+  sender : ByStr20,
+  recipient : ByStr20,
+  amount : Uint128
+)
+  owner <- current_owner;
+  carbAddr <- carb_addr;
+  isPaused <- pauseStake;
+  allowAll <- removeWhitelist;
+  minimumStake amount;
+  isOwner = builtin eq sender owner;
+  match isPaused with
+    | True =>
+      err = CodeContractPaused;
+      ThrowError err
+    | False =>
+      match isOwner with
+        | True =>
+          current_supply <- carbonAvailable;
+          newSupply = builtin add current_supply amount;
+          carbonAvailable := newSupply
+        | False =>
+          match allowAll with
+            | False =>
+              isWhitelisted sender;
+              
+              (*Check if sender is coming from Carbon Address only authentic token paid would be accepted*)
+              isCarbContract = builtin eq carbAddr _sender;
+              match isCarbContract with
+                | True =>
+                  stakedAmount <- stakers[sender];
+                  match stakedAmount with
+                    | Some stakedAmount =>
+                      newAmount = builtin add stakedAmount amount;
+                      stakers[sender] := newAmount;
+                      currentStake <- totalStaked;
+                      newAmount = builtin add currentStake amount;
+                      totalStaked := newAmount
+                    | None =>
+                      stakers[sender] := amount;
+                      automaticCul[sender] := true;
+                      cycleCount[sender] := intZero;
+                      cycleAmount[sender] := amount;
+                      currentStake <- totalStaked;
+                      newAmount = builtin add currentStake amount;
+                      totalStaked := newAmount;
+                      current_staker <- totalStakers;
+                      newStaker = builtin add current_staker uintOne;
+                      totalStakers := newStaker
+                  end
+                | False=>
+                  err = CodeWrongToken;
+                  ThrowError err
+              end
+            | True =>
+              
+              (*Check if sender is coming from Carbon Address only authentic token paid would be accepted*)
+              isCarbContract = builtin eq carbAddr _sender;
+              match isCarbContract with
+                | True =>
+                  stakedAmount <- stakers[sender];
+                  match stakedAmount with
+                    | Some stakedAmount =>
+                      newAmount = builtin add stakedAmount amount;
+                      stakers[sender] := newAmount;
+                      currentStake <- totalStaked;
+                      newAmount = builtin add currentStake amount;
+                      totalStaked := newAmount
+                    | None =>
+                      stakers[sender] := amount;
+                      automaticCul[sender] := true;
+                      cycleCount[sender] := intZero;
+                      cycleAmount[sender] := amount;
+                      currentStake <- totalStaked;
+                      newAmount = builtin add currentStake amount;
+                      totalStaked := newAmount;
+                      current_staker <- totalStakers;
+                      newStaker = builtin add current_staker uintOne;
+                      totalStakers := newStaker
+                  end
+                  
+                | False=>
+                  err = CodeWrongToken;
+                  ThrowError err
+              end
+          end
+      end
+  end
+end
+
+transition TransferSuccessCallBack(
+  sender : ByStr20,
+  recipient : ByStr20,
+  amount : Uint128
+)
+end
+
+(*Change Carbon Contract Address*)
+transition updateCarbAddress(addr: ByStr20)
+  owner <- current_owner;
+  isOwner = builtin eq owner _sender;
+  match isOwner with
+    | True =>
+      carb_addr := addr;
+      msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
+              code : carbAddressUpdated};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+(*Change Owner of Contract*)
+transition RequestOwnershipTransfer(new_owner : ByStr20)
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      po = Some {ByStr20} new_owner;
+      pending_owner := po
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+transition ConfirmOwnershipTransfer()
+  optional_po <- pending_owner;
+  match optional_po with
+  | Some optional_po =>
+      caller_is_new_owner = builtin eq _sender optional_po;
+      match caller_is_new_owner with
+      | True =>
+          (* transfer ownership *)
+          current_owner := optional_po;
+          none = None {ByStr20};
+          pending_owner := none
+      | False => (* the caller is not the new owner, do nothing*)
+        err = CodeIsNotSender;
+        ThrowError err
+      end
+  | None => (* ownership transfer is not in-progress, do nothing *)
+  end
+end
