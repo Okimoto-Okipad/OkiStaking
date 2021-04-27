@@ -12,11 +12,37 @@ https://viewblock.io/zilliqa/address/zil15fkt04mmcmztglksumzzp8nphce7lq3096048g?
 Do Raise any issues found via the issues section
 
 TestCases done on new contract:
+
+TransferStakeToNewContract
+- Only owner is able to call
+- Data cycleCount, cycleAmount, Stakers balance passed over
+
+TransferUnstakeToNewContract
+- Only Owner is able to call
+- Data removeStaker, removeBlock
+RewardAll
+- Correct Amount given to all, in totalStaked increased and ownerAvailable decreased correctly
+
+addStakeForOther
+- Overwrite if transition is called by same sender 2 times latest address is capture with amount
+- Transferred to contract wrong amount will reject the transaction
+- Transferred to contract the right amount pending is gone, correct amount is given to the address pending.
+- If whitelisting is in effect, the pending address also has to be whitelisted
+- if address already has staked, it will add on to their stake
+
+withdrawal functions
+- withdrawStake working
+- RemoveStake working
+- instantWithdrawal
+
+When removed totalStaked and totalUnstaked is adjusted accordingly
+totalStakers number is also accurate
+
 Added pending to other addresses
 tried to send wrong amount (Failed)
 If correct amount sent, the stake is added in for the pending address
-if address already has staked, it will add on to their stake
-If whitelisting is in effect, the pending address also has to be whitelisted
+
+
 
 Remove pending if change of mind
 
@@ -27,8 +53,7 @@ If rewardCycle count not met no rewards is given
 Calculated rewardsAll given and deducted from owner correctly
 Calculated rewardCycle given and deducted from owner correctly
 
-Tested instantWithdrawal
-Tested withdrawStake when blocks are reduced to 1
+
 
 Tested whitelisting
 
