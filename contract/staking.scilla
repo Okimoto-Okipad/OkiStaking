@@ -836,6 +836,22 @@ transition ownerWithdrawAdded (amount: Uint128)
   end
 end
 
+transition ownerDrainContract (amount: Uint128)
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      carbAddr <- carb_addr;
+      msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: zero;
+              to: owner; amount: amount};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
 transition changeEpochCount (cycle: Int32)
   owner <- current_owner;
   isOwner = builtin eq _sender owner;
