@@ -502,6 +502,7 @@ transition rewardAll()
               staker_list = builtin to_list stake;
               newStake = builtin add currentStake stakeDailyRate;
               reduceOwner = builtin sub carbonAdded stakeDailyRate;
+              carbonAvailable := reduceOwner;
               totalStaked := newStake;
               forall staker_list addRewards;
               
@@ -540,6 +541,7 @@ transition rewardAll()
               staker_list = builtin to_list stake;
               newStake = builtin add currentStake stakeWeeklyRate;
               reduceOwner = builtin sub carbonAdded stakeWeeklyRate;
+              carbonAvailable := reduceOwner;
               totalStaked := newStake;
               forall staker_list addRewards;
               
