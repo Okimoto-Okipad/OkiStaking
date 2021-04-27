@@ -889,62 +889,6 @@ end
 
 
 
-
-
-
-
-transition transferStakeSuccessfulCallBack(address: ByStr20)
-  futureAddr <- futureContract;
-  carbAddr <- carb_addr;
-  isFuture = builtin eq futureAddr _sender;
-  match isFuture with
-    | True =>
-      amount_toReturn <- stakers[address];
-      send_amount = get_val amount_toReturn;
-      total_staked <- totalStaked;
-      newStaked = builtin sub total_staked send_amount;
-      totalStaked := newStaked;
-      total_stakers <- totalStakers;
-      newStakerAmount = builtin sub total_stakers uintOne;
-      totalStakers := newStakerAmount;
-      delete stakers[address];
-      delete cycleAmount[address];
-      delete cycleCount[address];
-      msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: Uint128 0;
-              to: futureAddr; amount: send_amount};
-      msgs = one_msg msg;
-      send msgs
-    | False =>
-      err = CodeIsNotSender;
-      ThrowError err
-  end
-end
-
-transition transferUnstakeSuccessfulCallBack(address: ByStr20)
-  futureAddr <- futureContract;
-  carbAddr <- carb_addr;
-  isFuture = builtin eq futureAddr _sender;
-  match isFuture with
-    | True =>
-      amount_toReturn <- removeStaker[address];
-      send_amount = get_val amount_toReturn;
-      total_unstaked <- totalUnstaked;
-      newUnstaked = builtin sub total_unstaked send_amount;
-      totalUnstaked := newUnstaked;
-      delete removeStaker[address];
-      delete removeBlock[address];
-      msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: Uint128 0;
-              to: futureAddr; amount: send_amount};
-      msgs = one_msg msg;
-      send msgs
-    | False =>
-      err = CodeIsNotSender;
-      ThrowError err
-  end
-end
-
-
-
 transition changeImplementationContractAddress(address: ByStr20)
   owner <- current_owner;
   isOwner = builtin eq _sender owner;
@@ -1434,5 +1378,55 @@ transition ConfirmOwnershipTransfer()
         ThrowError err
       end
   | None => (* ownership transfer is not in-progress, do nothing *)
+  end
+end
+
+transition transferStakeSuccessfulCallBack(address: ByStr20)
+  futureAddr <- futureContract;
+  carbAddr <- carb_addr;
+  isFuture = builtin eq futureAddr _sender;
+  match isFuture with
+    | True =>
+      amount_toReturn <- stakers[address];
+      send_amount = get_val amount_toReturn;
+      total_staked <- totalStaked;
+      newStaked = builtin sub total_staked send_amount;
+      totalStaked := newStaked;
+      total_stakers <- totalStakers;
+      newStakerAmount = builtin sub total_stakers uintOne;
+      totalStakers := newStakerAmount;
+      delete stakers[address];
+      delete cycleAmount[address];
+      delete cycleCount[address];
+      msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: Uint128 0;
+              to: futureAddr; amount: send_amount};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+transition transferUnstakeSuccessfulCallBack(address: ByStr20)
+  futureAddr <- futureContract;
+  carbAddr <- carb_addr;
+  isFuture = builtin eq futureAddr _sender;
+  match isFuture with
+    | True =>
+      amount_toReturn <- removeStaker[address];
+      send_amount = get_val amount_toReturn;
+      total_unstaked <- totalUnstaked;
+      newUnstaked = builtin sub total_unstaked send_amount;
+      totalUnstaked := newUnstaked;
+      delete removeStaker[address];
+      delete removeBlock[address];
+      msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: Uint128 0;
+              to: futureAddr; amount: send_amount};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
   end
 end
