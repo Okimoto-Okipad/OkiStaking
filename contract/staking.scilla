@@ -827,6 +827,10 @@ transition instantWithdrawal()
   end
 end
 
+
+
+
+
 transition transferStakeToNewContract(address: ByStr20)
   owner <- current_owner;
   isOwner = builtin eq _sender owner;
@@ -834,13 +838,13 @@ transition transferStakeToNewContract(address: ByStr20)
     | True =>
       futureAddr <- futureContract;
       stakers_amount <- stakers[address];
-      cycle_amount <- cycleAmount[address];
-      cycle_Count <- cycleCount[address];
+      cyc_amount <- cycleAmount[address];
+      cyc_Count <- cycleCount[address];
       stake_amount = get_val stakers_amount;
-      cycleAmount = get_val cycle_amount;
-      cycleCount = get_Intval cycle_Count;
+      cycle_Amount = get_val cyc_amount;
+      cycle_Count = get_Intval cyc_Count;
       msg = {_tag : "TransferStakeToNew"; _recipient: futureAddr; _amount: Uint128 0;
-              staker_address: address;staked_amount: stake_amount; cycleAmount : cycleAmount; cycleCount: cycleCount};
+              staker_address: address;staked_amount: stake_amount; cycleAmount : cycle_Amount; cycleCount: cycle_Count};
       msgs = one_msg msg;
       send msgs
     | False =>
@@ -888,6 +892,9 @@ transition transferStakeSuccessfulCallBack(address: ByStr20)
       total_staked <- totalStaked;
       newStaked = builtin sub total_staked send_amount;
       totalStaked := newStaked;
+      total_stakers <- totalStakers;
+      newStakerAmount = builtin sub total_stakers uintOne;
+      totalStakers := newStakerAmount;
       delete stakers[address];
       delete cycleAmount[address];
       delete cycleCount[address];
