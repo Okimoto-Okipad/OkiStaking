@@ -1166,152 +1166,158 @@ transition RecipientAcceptTransfer(
   allowAll <- useWhitelist;
   pendingAdd <- pendingAddStake[sender];
   isOwner = builtin eq sender owner;
-  match isPaused with
+  imp <- implementationContract;
+  isImp = builtin eq imp sender;
+  match isImp with
     | True =>
-      err = CodeContractPaused;
-      ThrowError err
     | False =>
-      match isOwner with
+      match isPaused with
         | True =>
-          current_supply <- carbonAvailable;
-          newSupply = builtin add current_supply amount;
-          carbonAvailable := newSupply
+          err = CodeContractPaused;
+          ThrowError err
         | False =>
-          minimumStake amount;
-          match allowAll with
-            | False =>
-              (*Check if sender is coming from Carbon Address only authentic token paid would be accepted*)
-              isCarbContract = builtin eq carbAddr _sender;
-              match isCarbContract with
-                | True =>
-                  match pendingAdd with
-                    | None =>
-                      stakedAmount <- stakers[sender];
-                      match stakedAmount with
-                        | Some stakedAmount =>
-                          newAmount = builtin add stakedAmount amount;
-                          stakers[sender] := newAmount;
-                          currentStake <- totalStaked;
-                          newAmount = builtin add currentStake amount;
-                          totalStaked := newAmount
-                        | None =>
-                          stakers[sender] := amount;
-                          automaticCul[sender] := true;
-                          cycleCount[sender] := intZero;
-                          cycleAmount[sender] := amount;
-                          currentStake <- totalStaked;
-                          newAmount = builtin add currentStake amount;
-                          totalStaked := newAmount;
-                          current_staker <- totalStakers;
-                          newStaker = builtin add current_staker uintOne;
-                          totalStakers := newStaker
-                      end
-                    | Some pendingAdd =>
-                      match pendingAdd with
-                        | Pair addressOfStaker amountAdding =>
-                          isEqualPaid = builtin eq amountAdding amount;
-                          match isEqualPaid with
-                            | False =>
-                              delete pendingAddStake[sender];
-                              err = CodeWrongAmountStaked;
-                              ThrowError err
-                            | True =>
-                              delete pendingAddStake[sender];
-                              stakedAmount <- stakers[addressOfStaker];
-                              match stakedAmount with
-                                | Some stakedAmount =>
-                                  newAmount = builtin add stakedAmount amount;
-                                  stakers[addressOfStaker] := newAmount;
-                                  currentStake <- totalStaked;
-                                  newAmount = builtin add currentStake amount;
-                                  totalStaked := newAmount
-                                | None =>
-                                  stakers[addressOfStaker] := amount;
-                                  automaticCul[addressOfStaker] := true;
-                                  cycleCount[addressOfStaker] := intZero;
-                                  cycleAmount[addressOfStaker] := amount;
-                                  currentStake <- totalStaked;
-                                  newAmount = builtin add currentStake amount;
-                                  totalStaked := newAmount;
-                                  current_staker <- totalStakers;
-                                  newStaker = builtin add current_staker uintOne;
-                                  totalStakers := newStaker
-                              end
-                          end
-                      end
-                  end
-                | False=>
-                  err = CodeWrongToken;
-                  ThrowError err
-              end
+          match isOwner with
             | True =>
-              
-              isWhitelisted sender;
-              
-              (*Check if sender is coming from Carbon Address only authentic token paid would be accepted*)
-              isCarbContract = builtin eq carbAddr _sender;
-              match isCarbContract with
-                | True =>
-                  match pendingAdd with
-                    | None =>
-                      stakedAmount <- stakers[sender];
-                      match stakedAmount with
-                        | Some stakedAmount =>
-                          newAmount = builtin add stakedAmount amount;
-                          stakers[sender] := newAmount;
-                          currentStake <- totalStaked;
-                          newAmount = builtin add currentStake amount;
-                          totalStaked := newAmount
-                        | None =>
-                          stakers[sender] := amount;
-                          automaticCul[sender] := true;
-                          cycleCount[sender] := intZero;
-                          cycleAmount[sender] := amount;
-                          currentStake <- totalStaked;
-                          newAmount = builtin add currentStake amount;
-                          totalStaked := newAmount;
-                          current_staker <- totalStakers;
-                          newStaker = builtin add current_staker uintOne;
-                          totalStakers := newStaker
-                      end
-                    | Some pendingAdd =>
+              current_supply <- carbonAvailable;
+              newSupply = builtin add current_supply amount;
+              carbonAvailable := newSupply
+            | False =>
+              minimumStake amount;
+              match allowAll with
+                | False =>
+                  (*Check if sender is coming from Carbon Address only authentic token paid would be accepted*)
+                  isCarbContract = builtin eq carbAddr _sender;
+                  match isCarbContract with
+                    | True =>
                       match pendingAdd with
-                        | Pair addressOfStaker amountAdding =>
-                          isWhitelisted addressOfStaker;
-                          isEqualPaid = builtin eq amountAdding amount;
-                          match isEqualPaid with
-                            | False =>
-                              delete pendingAddStake[sender];
-                              err = CodeWrongAmountStaked;
-                              ThrowError err
-                            | True =>
-                              delete pendingAddStake[sender];
-                              stakedAmount <- stakers[addressOfStaker];
-                              match stakedAmount with
-                                | Some stakedAmount =>
-                                  newAmount = builtin add stakedAmount amount;
-                                  stakers[addressOfStaker] := newAmount;
-                                  currentStake <- totalStaked;
-                                  newAmount = builtin add currentStake amount;
-                                  totalStaked := newAmount
-                                | None =>
-                                  stakers[addressOfStaker] := amount;
-                                  automaticCul[addressOfStaker] := true;
-                                  cycleCount[addressOfStaker] := intZero;
-                                  cycleAmount[addressOfStaker] := amount;
-                                  currentStake <- totalStaked;
-                                  newAmount = builtin add currentStake amount;
-                                  totalStaked := newAmount;
-                                  current_staker <- totalStakers;
-                                  newStaker = builtin add current_staker uintOne;
-                                  totalStakers := newStaker
+                        | None =>
+                          stakedAmount <- stakers[sender];
+                          match stakedAmount with
+                            | Some stakedAmount =>
+                              newAmount = builtin add stakedAmount amount;
+                              stakers[sender] := newAmount;
+                              currentStake <- totalStaked;
+                              newAmount = builtin add currentStake amount;
+                              totalStaked := newAmount
+                            | None =>
+                              stakers[sender] := amount;
+                              automaticCul[sender] := true;
+                              cycleCount[sender] := intZero;
+                              cycleAmount[sender] := amount;
+                              currentStake <- totalStaked;
+                              newAmount = builtin add currentStake amount;
+                              totalStaked := newAmount;
+                              current_staker <- totalStakers;
+                              newStaker = builtin add current_staker uintOne;
+                              totalStakers := newStaker
+                          end
+                        | Some pendingAdd =>
+                          match pendingAdd with
+                            | Pair addressOfStaker amountAdding =>
+                              isEqualPaid = builtin eq amountAdding amount;
+                              match isEqualPaid with
+                                | False =>
+                                  delete pendingAddStake[sender];
+                                  err = CodeWrongAmountStaked;
+                                  ThrowError err
+                                | True =>
+                                  delete pendingAddStake[sender];
+                                  stakedAmount <- stakers[addressOfStaker];
+                                  match stakedAmount with
+                                    | Some stakedAmount =>
+                                      newAmount = builtin add stakedAmount amount;
+                                      stakers[addressOfStaker] := newAmount;
+                                      currentStake <- totalStaked;
+                                      newAmount = builtin add currentStake amount;
+                                      totalStaked := newAmount
+                                    | None =>
+                                      stakers[addressOfStaker] := amount;
+                                      automaticCul[addressOfStaker] := true;
+                                      cycleCount[addressOfStaker] := intZero;
+                                      cycleAmount[addressOfStaker] := amount;
+                                      currentStake <- totalStaked;
+                                      newAmount = builtin add currentStake amount;
+                                      totalStaked := newAmount;
+                                      current_staker <- totalStakers;
+                                      newStaker = builtin add current_staker uintOne;
+                                      totalStakers := newStaker
+                                  end
                               end
                           end
                       end
+                    | False=>
+                      err = CodeWrongToken;
+                      ThrowError err
                   end
-                | False=>
-                  err = CodeWrongToken;
-                  ThrowError err
+                | True =>
+                  
+                  isWhitelisted sender;
+                  
+                  (*Check if sender is coming from Carbon Address only authentic token paid would be accepted*)
+                  isCarbContract = builtin eq carbAddr _sender;
+                  match isCarbContract with
+                    | True =>
+                      match pendingAdd with
+                        | None =>
+                          stakedAmount <- stakers[sender];
+                          match stakedAmount with
+                            | Some stakedAmount =>
+                              newAmount = builtin add stakedAmount amount;
+                              stakers[sender] := newAmount;
+                              currentStake <- totalStaked;
+                              newAmount = builtin add currentStake amount;
+                              totalStaked := newAmount
+                            | None =>
+                              stakers[sender] := amount;
+                              automaticCul[sender] := true;
+                              cycleCount[sender] := intZero;
+                              cycleAmount[sender] := amount;
+                              currentStake <- totalStaked;
+                              newAmount = builtin add currentStake amount;
+                              totalStaked := newAmount;
+                              current_staker <- totalStakers;
+                              newStaker = builtin add current_staker uintOne;
+                              totalStakers := newStaker
+                          end
+                        | Some pendingAdd =>
+                          match pendingAdd with
+                            | Pair addressOfStaker amountAdding =>
+                              isWhitelisted addressOfStaker;
+                              isEqualPaid = builtin eq amountAdding amount;
+                              match isEqualPaid with
+                                | False =>
+                                  delete pendingAddStake[sender];
+                                  err = CodeWrongAmountStaked;
+                                  ThrowError err
+                                | True =>
+                                  delete pendingAddStake[sender];
+                                  stakedAmount <- stakers[addressOfStaker];
+                                  match stakedAmount with
+                                    | Some stakedAmount =>
+                                      newAmount = builtin add stakedAmount amount;
+                                      stakers[addressOfStaker] := newAmount;
+                                      currentStake <- totalStaked;
+                                      newAmount = builtin add currentStake amount;
+                                      totalStaked := newAmount
+                                    | None =>
+                                      stakers[addressOfStaker] := amount;
+                                      automaticCul[addressOfStaker] := true;
+                                      cycleCount[addressOfStaker] := intZero;
+                                      cycleAmount[addressOfStaker] := amount;
+                                      currentStake <- totalStaked;
+                                      newAmount = builtin add currentStake amount;
+                                      totalStaked := newAmount;
+                                      current_staker <- totalStakers;
+                                      newStaker = builtin add current_staker uintOne;
+                                      totalStakers := newStaker
+                                  end
+                              end
+                          end
+                      end
+                    | False=>
+                      err = CodeWrongToken;
+                      ThrowError err
+                  end
               end
           end
       end
@@ -1363,6 +1369,7 @@ transition TransferStakeToNew (staker_address : ByStr20, staked_amount : Uint128
   end;
   staked <- totalStaked;
   newStaked = builtin add staked staked_amount;
+  totalStaked := newStaked
   
   msg = {_tag : "transferStakeSuccessfulCallBack"; _recipient: _sender; _amount: Uint128 0;
           address : staker_address};
