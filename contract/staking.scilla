@@ -505,7 +505,6 @@ transition rewardAll()
               totalStaked := newStake;
               forall staker_list addRewards;
               
-              
               (*Unstaking Rewards*)
               unstake <- removeStaker;
               unstaker_list = builtin to_list unstake;
