@@ -36,10 +36,12 @@ let hundred = Uint128 100
 let week = Uint128 7
 let year = Uint128 365
 let zero = Uint128 0
+let intZero = Int32 0
 let two = Uint128 2
 let false = False
 let true = True
 
+let blkZero = BNum 0
 let uintOne = Uint128 1
 let intZero = Int32 0
 let intOne = Int32 1
@@ -50,7 +52,21 @@ let get_val =
     | Some val => val
     | None => zero
     end
+    
+let get_Intval =
+  fun (some_val: Option Int32) =>
+    match some_val with
+    | Some val => val
+    | None => intZero
+    end
 
+
+let get_blkval =
+  fun (some_val: Option BNum) =>
+    match some_val with
+    | Some val => val
+    | None => blkZero
+    end
 (*Status back*)
 let carbAddressUpdated = Int32 1
 let rateChanged = Int32 2
@@ -127,6 +143,9 @@ field cycleAmount : Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field rewardCount : Int32 = Int32 10
 field rewardRate : Uint128 = Uint128 1
 
+field futureContract : ByStr20 = _this_address
+
+field stakerMoved : Map ByStr20 Bool = Emp ByStr20 Bool
 
 field automaticCul : Map ByStr20 Bool = Emp ByStr20 Bool
 field pending_carbs : Map ByStr20 Uint128 = Emp ByStr20 Uint128
@@ -808,6 +827,120 @@ transition instantWithdrawal()
   end
 end
 
+transition transferStakeToNewContract(address: ByStr20)
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      futureAddr <- futureContract;
+      stakers_amount <- stakers[address];
+      cycle_amount <- cycleAmount[address];
+      cycle_Count <- cycleCount[address];
+      stake_amount = get_val stakers_amount;
+      cycleAmount = get_val cycle_amount;
+      cycleCount = get_Intval cycle_Count;
+      msg = {_tag : "TransferStakeToNew"; _recipient: futureAddr; _amount: Uint128 0;
+              staker_address: address;staked_amount: stake_amount; cycleAmount : cycleAmount; cycleCount: cycleCount};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+transition transferUnstakeToNewContract(address: ByStr20)
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      futureAddr <- futureContract;
+      
+      unstakeAmount <- removeStaker[address];
+      unstakeBlock <- removeBlock[address];
+      unstaked_amount = get_val unstakeAmount;
+      unstaked_block =  get_blkval unstakeBlock;
+      
+      msg = {_tag : "TransferUnstakeToNew"; _recipient: futureAddr; _amount: Uint128 0;
+              staker_address: address;unstaked_amount: unstaked_amount; unstaked_blocks: unstaked_block};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+
+
+
+
+
+
+transition transferStakeSuccessfulCallBack(address: ByStr20)
+  futureAddr <- futureContract;
+  carbAddr <- carb_addr;
+  isFuture = builtin eq futureAddr _sender;
+  match isFuture with
+    | True =>
+      amount_toReturn <- stakers[address];
+      send_amount = get_val amount_toReturn;
+      total_staked <- totalStaked;
+      newStaked = builtin sub total_staked send_amount;
+      totalStaked := newStaked;
+      delete stakers[address];
+      delete cycleAmount[address];
+      delete cycleCount[address];
+      msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: Uint128 0;
+              to: futureAddr; amount: send_amount};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+transition transferUnstakeSuccessfulCallBack(address: ByStr20)
+  futureAddr <- futureContract;
+  carbAddr <- carb_addr;
+  isFuture = builtin eq futureAddr _sender;
+  match isFuture with
+    | True =>
+      amount_toReturn <- removeStaker[address];
+      send_amount = get_val amount_toReturn;
+      total_unstaked <- totalUnstaked;
+      newUnstaked = builtin sub total_unstaked send_amount;
+      totalUnstaked := newUnstaked;
+      delete removeStaker[address];
+      delete removeBlock[address];
+      msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: Uint128 0;
+              to: futureAddr; amount: send_amount};
+      msgs = one_msg msg;
+      send msgs
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
+
+
+
+
+
+
+
+transition changeFutureContractAddress(address: ByStr20)
+  owner <- current_owner;
+  isOwner = builtin eq _sender owner;
+  match isOwner with
+    | True =>
+      futureContract := address
+    | False =>
+      err = CodeIsNotSender;
+      ThrowError err
+  end
+end
 
 transition ownerWithdrawAdded (amount: Uint128)
   owner <- current_owner;
