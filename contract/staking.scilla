@@ -573,10 +573,7 @@ transition rewardCycleRewards()
   currentStake <- totalStaked;
   carbonAdded <- carbonAvailable;
   carbonLastAmount := carbonAdded;
-  onePercentStake = builtin div currentStake hundred;
-  isCarbonEnough = builtin lt carbonAdded onePercentStake;
-  
-  
+
   (*Cycle rewards*)
   cycle <- cycleAmount;
   cycleAmount_list = builtin to_list cycle;
