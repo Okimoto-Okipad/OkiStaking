@@ -1369,7 +1369,7 @@ transition TransferStakeToNew (staker_address : ByStr20, staked_amount : Uint128
   end;
   staked <- totalStaked;
   newStaked = builtin add staked staked_amount;
-  totalStaked := newStaked
+  totalStaked := newStaked;
   
   msg = {_tag : "transferStakeSuccessfulCallBack"; _recipient: _sender; _amount: Uint128 0;
           address : staker_address};
@@ -1436,3 +1436,4 @@ transition ConfirmOwnershipTransfer()
   | None => (* ownership transfer is not in-progress, do nothing *)
   end
 end
+
