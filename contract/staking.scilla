@@ -656,8 +656,8 @@ transition removeStake(amount: Uint128)
   total_unstaked <- totalUnstaked;
   match accBalance with
     | Some accBalance =>
-      fullWithdrawal = builtin lt amount accBalance;
-      match fullWithdrawal with
+      notFullWithdrawal = builtin lt amount accBalance;
+      match notFullWithdrawal with
         | True =>
           minStake <- minimumStake;
           newBalance = builtin sub accBalance amount;
@@ -695,10 +695,8 @@ transition removeStake(amount: Uint128)
               removeBlock[_sender] := block_required;
               stakers[_sender] := newBalance;
               cycleAmount[_sender] := newBalance;
-              cycleCount[_sender] := intZero;
-              current_stake <- totalStakers;
-              new_stakers = builtin sub current_stake uintOne;
-              totalStakers := new_stakers
+              cycleCount[_sender] := intZero
+
           end
         | False =>
           checkPending <- removeStaker[_sender];
@@ -726,7 +724,11 @@ transition removeStake(amount: Uint128)
               removeBlock[_sender] := block_required;
               delete stakers[_sender];
               delete cycleAmount[_sender];
-              delete cycleCount[_sender]
+              delete cycleCount[_sender];
+              
+              current_stake <- totalStakers;
+              new_stakers = builtin sub current_stake uintOne;
+              totalStakers := new_stakers
           end
       end
     | None =>
