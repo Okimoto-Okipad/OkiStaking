@@ -715,8 +715,11 @@ transition removeStake(amount: Uint128)
               removeBlock[_sender] := block_required;
               delete stakers[_sender];
               delete cycleAmount[_sender];
-              delete cycleCount[_sender]
+              delete cycleCount[_sender];
               
+              current_stake <- totalStakers;
+              new_stakers = builtin sub current_stake uintOne;
+              totalStakers := new_stakers
             | None =>
               removeStaker[_sender] := accBalance;
               remove_block <- remove_bnum;
