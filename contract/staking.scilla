@@ -656,9 +656,10 @@ transition removeStake(amount: Uint128)
   total_unstaked <- totalUnstaked;
   match accBalance with
     | Some accBalance =>
-      notFullWithdrawal = builtin lt amount accBalance;
-      match notFullWithdrawal with
-        | True =>
+      fullWithdrawal = uint128_ge amount accBalance;
+      
+      match fullWithdrawal with
+        | False =>
           minStake <- minimumStake;
           newBalance = builtin sub accBalance amount;
           isMinimum = builtin lt newBalance minStake;
@@ -698,7 +699,7 @@ transition removeStake(amount: Uint128)
               cycleCount[_sender] := intZero
 
           end
-        | False =>
+        | True =>
           checkPending <- removeStaker[_sender];
           newStaked = builtin sub total_staked accBalance;
           totalStaked := newStaked;
