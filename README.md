@@ -6,8 +6,9 @@ carbon testnet: 0x3e1b442f12c57449464c7daa162803765606b81f
 <br>
 https://viewblock.io/zilliqa/address/0x3e1b442f12c57449464c7daa162803765606b81f?network=testnet 
 <br>
-testnet : 0xa26cb7d77bc6c4b47ed0e6c4209e61be33ef822f <br>
-https://viewblock.io/zilliqa/address/zil15fkt04mmcmztglksumzzp8nphce7lq3096048g?network=testnet
+staking: https://devex.zilliqa.com/address/0x504f7f08c74130317b414e148c1e355ca2dc49fd?network=https://dev-api.zilliqa.com
+<br>
+future: https://devex.zilliqa.com/address/0x4ce0291f3d6f98dec8c6158820bdf425b41ebea0?network=https://dev-api.zilliqa.com
 
 Do Raise any issues found via the issues section
 
