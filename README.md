@@ -10,6 +10,11 @@ staking: https://viewblock.io/zilliqa/address/zil1k85j7m7q9khjzp7j8gjnqpayvfw6rk
 <br>
 future: https://devex.zilliqa.com/address/0x4ce0291f3d6f98dec8c6158820bdf425b41ebea0?network=https://dev-api.zilliqa.com
 
+## Examples
+
+The mainnet carbon contract might be useful:
+https://viewblock.io/zilliqa/address/zil18r37xks4r3rj7rzydujcckzlylftdy2qerszne?tab=tokens
+
 Do Raise any issues found via the issues section
 
 TestCases done on new contract:
