@@ -68,7 +68,7 @@ let get_blkval =
     | None => blkZero
     end
 (*Status back*)
-let carbAddressUpdated = Int32 1
+let okiAddressUpdated = Int32 1
 let rateChanged = Int32 2
 let culModeChanged = Int32 3
 let cycleChanged = Int32 4
@@ -84,7 +84,7 @@ let blockChanged = Int32 12
 (* Error events *)
 type Error =
 | CodeIsNotSender
-| CodeInsufficientCarbs
+| CodeInsufficientOkis
 | CodeExceedAvailable
 | CodeNotStaker
 | CodeBlockNotReach
@@ -102,7 +102,7 @@ let make_error =
     let result_code = 
       match result with
       | CodeIsNotSender              => Int32 -1
-      | CodeInsufficientCarbs     => Int32 -2
+      | CodeInsufficientOkis     => Int32 -2
       | CodeExceedAvailable => Int32 -3
       | CodeNotStaker => Int32 -4
       | CodeBlockNotReach => Int32 -5
@@ -118,17 +118,17 @@ let make_error =
     in
     { _exception : "Error"; code : result_code }
   
-contract CarbonStake
+contract OkiStake
 (
   initial_owner : ByStr20,
-  carbonContract : ByStr20
+  okiContract : ByStr20
 )
 (*Used for ownership change*)
 field current_owner : ByStr20 = initial_owner
 field pending_owner : Option ByStr20 = None {ByStr20}
-field carb_addr : ByStr20 = carbonContract
-field carbonAvailable : Uint128 = Uint128 0
-field carbonLastAmount : Uint128 = Uint128 0
+field oki_addr : ByStr20 = okiContract
+field okiAvailable : Uint128 = Uint128 0
+field okiLastAmount : Uint128 = Uint128 0
 
 (*Add stakers*)
 field pendingAddStake : Map ByStr20 (Pair (ByStr20) (Uint128)) = Emp ByStr20 (Pair (ByStr20) (Uint128))
@@ -149,7 +149,7 @@ field futureContract : ByStr20 = _this_address
 field implementationContract : ByStr20 = _this_address
 
 field automaticCul : Map ByStr20 Bool = Emp ByStr20 Bool
-field pending_carbs : Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field pending_okis : Map ByStr20 Uint128 = Emp ByStr20 Uint128
 
 field whitelistAddr : Map ByStr20 ByStr20 = Emp ByStr20 ByStr20
 field useWhitelist : Bool = True
@@ -212,9 +212,9 @@ procedure addRewards(staker: Pair ByStr20 Uint128)
       staking <- stakers[key];
       daily <- daily;
       totalStake <- totalStaked;
-      pending <- pending_carbs[key];
+      pending <- pending_okis[key];
       culmulative <- automaticCul[key];
-      current_supply <- carbonAvailable;
+      current_supply <- okiAvailable;
       balance = get_val staking;
       cycle <- cycleCount[key];
       match cycle with
@@ -244,9 +244,9 @@ procedure addRewards(staker: Pair ByStr20 Uint128)
                   match pending with
                     | Some pending =>
                       newAmount = builtin add pending dailyReward;
-                      pending_carbs[key] := newAmount
+                      pending_okis[key] := newAmount
                     | None =>
-                      pending_carbs[key] := dailyReward
+                      pending_okis[key] := dailyReward
                   end
               end
             | None =>
@@ -266,9 +266,9 @@ procedure addRewards(staker: Pair ByStr20 Uint128)
                   match pending with
                     | Some pending =>
                       newAmount = builtin add pending weeklyReward;
-                      pending_carbs[key] := newAmount
+                      pending_okis[key] := newAmount
                     | None =>
-                      pending_carbs[key] := weeklyReward
+                      pending_okis[key] := weeklyReward
                   end
               end
             | None =>
@@ -283,8 +283,8 @@ procedure rewardCycle(staker: Pair ByStr20 Uint128)
       baseAmount <- cycleAmount[key];
       currentCount <- cycleCount[key];
       rewardCounter <- rewardCount;
-      ownerCarbs <- carbonAvailable;
-      pending <- pending_carbs[key];
+      ownerOkis <- okiAvailable;
+      pending <- pending_okis[key];
       stake <- stakers[key];
       rate <- rewardRate;
       match currentCount with
@@ -297,13 +297,13 @@ procedure rewardCycle(staker: Pair ByStr20 Uint128)
               match baseAmount with
                 | Some baseAmount =>
                   onePercent = builtin div baseAmount hundred;
-                  (*Reduce owner carbon rate*)
-                  reduceOwner =  builtin sub ownerCarbs onePercent;
-                  carbonAvailable := reduceOwner;
+                  (*Reduce owner oki rate*)
+                  reduceOwner =  builtin sub ownerOkis onePercent;
+                  okiAvailable := reduceOwner;
                   match pending with
                     | Some pending =>
                       newAmount = builtin add pending onePercent;
-                      pending_carbs[key] := newAmount;
+                      pending_okis[key] := newAmount;
                       cycleCount[key] := intZero;
                       match stake with
                         | Some stake => 
@@ -311,7 +311,7 @@ procedure rewardCycle(staker: Pair ByStr20 Uint128)
                         | None =>
                       end
                     | None =>
-                      pending_carbs[key] := onePercent;
+                      pending_okis[key] := onePercent;
                       cycleCount[key] := intZero;
                       match stake with
                         | Some stake => 
@@ -333,8 +333,8 @@ procedure addUnstakeReward(staker: Pair ByStr20 Uint128)
     | Pair key value  =>
       staking <- removeStaker[key];
       daily <- daily;
-      pending <- pending_carbs[key];
-      ownerCarbs <- carbonAvailable;
+      pending <- pending_okis[key];
+      ownerOkis <- okiAvailable;
       balance = get_val staking;
       onePercent = builtin div balance hundred;
       rewardRate <- unstakePercent;
@@ -342,27 +342,27 @@ procedure addUnstakeReward(staker: Pair ByStr20 Uint128)
       dailyReward = builtin div yearRate year;
       match daily with
         | True =>
-          (*Reduce owner carbon rate*)
-          reduceOwner =  builtin sub ownerCarbs dailyReward;
-          carbonAvailable := reduceOwner;
+          (*Reduce owner oki rate*)
+          reduceOwner =  builtin sub ownerOkis dailyReward;
+          okiAvailable := reduceOwner;
           match pending with
             | Some pending =>
               newAmount = builtin add pending dailyReward;
-              pending_carbs[key] := newAmount
+              pending_okis[key] := newAmount
             | None =>
-              pending_carbs[key] := dailyReward
+              pending_okis[key] := dailyReward
           end
         | False =>
           weeklyReward = builtin mul dailyReward week;
-          (*Reduce owner carbon rate*)
-          reduceOwner =  builtin sub ownerCarbs weeklyReward;
-          carbonAvailable := reduceOwner;
+          (*Reduce owner oki rate*)
+          reduceOwner =  builtin sub ownerOkis weeklyReward;
+          okiAvailable := reduceOwner;
           match pending with
             | Some pending =>
               newAmount = builtin add pending weeklyReward;
-              pending_carbs[key] := newAmount
+              pending_okis[key] := newAmount
             | None =>
-              pending_carbs[key] := weeklyReward
+              pending_okis[key] := weeklyReward
           end
       end
   end
@@ -371,14 +371,14 @@ end
 procedure penaltyToStakers(staker: Pair ByStr20 Uint128)
   match staker with
     | Pair key value  =>
-      pending <- pending_carbs[key];
+      pending <- pending_okis[key];
       reward <- penaltyRewardPerStaker;
       match pending with
         | Some pending =>
           newAmount = builtin add pending reward;
-          pending_carbs[key] := newAmount
+          pending_okis[key] := newAmount
         | None =>
-          pending_carbs[key] := reward
+          pending_okis[key] := reward
       end
   end
 end
@@ -505,8 +505,8 @@ transition rewardAll()
     | False =>
       currentStake <- totalStaked;
       currentUnstake <- totalUnstaked;
-      carbonAdded <- carbonAvailable;
-      carbonLastAmount := carbonAdded;
+      okiAdded <- okiAvailable;
+      okiLastAmount := okiAdded;
       stakeRate <- rewardPercent;
       unstakeRate <- unstakePercent;
       currentIteration <- daily;
@@ -522,18 +522,18 @@ transition rewardAll()
       match currentIteration with
         | True =>
           (*If daily Rate*)
-          isCarbonEnough = builtin lt carbonAdded stakesCost;
-          match isCarbonEnough with
+          isOkiEnough = builtin lt okiAdded stakesCost;
+          match isOkiEnough with
             | True =>
-              err = CodeInsufficientCarbs;
+              err = CodeInsufficientOkis;
               ThrowError err
             | False =>
               (*Staking rewards*)
               stake <- stakers;
               staker_list = builtin to_list stake;
               newStake = builtin add currentStake stakeDailyRate;
-              reduceOwner = builtin sub carbonAdded stakeDailyRate;
-              carbonAvailable := reduceOwner;
+              reduceOwner = builtin sub okiAdded stakeDailyRate;
+              okiAvailable := reduceOwner;
               totalStaked := newStake;
               forall staker_list addRewards;
               
@@ -548,9 +548,9 @@ transition rewardAll()
               rewardBlocks := newRewardBlock;
               lastReward := currentBlockCycle;
               
-              initialCarb <- carbonLastAmount;
-              balanceCarb <- carbonAvailable;
-              totalrewarded = builtin sub initialCarb balanceCarb;
+              initialOki <- okiLastAmount;
+              balanceOki <- okiAvailable;
+              totalrewarded = builtin sub initialOki balanceOki;
               event_rewardsGiven = { _eventname: "rewardsAwarded"; block: currentBlk; rewardGiven: totalrewarded};
               event event_rewardsGiven
           end
@@ -560,19 +560,19 @@ transition rewardAll()
           unstakeWeeklyRate = builtin mul unstakeDailyRate week;
           stakeTotalRequired = builtin add stakeWeeklyRate unstakeWeeklyRate;
           
-          isCarbonEnough = builtin lt carbonAdded stakeTotalRequired;
+          isOkiEnough = builtin lt okiAdded stakeTotalRequired;
           
-          match isCarbonEnough with
+          match isOkiEnough with
             | True =>
-              err = CodeInsufficientCarbs;
+              err = CodeInsufficientOkis;
               ThrowError err
             | False =>
               (*Stakers*)
               stake <- stakers;
               staker_list = builtin to_list stake;
               newStake = builtin add currentStake stakeWeeklyRate;
-              reduceOwner = builtin sub carbonAdded stakeWeeklyRate;
-              carbonAvailable := reduceOwner;
+              reduceOwner = builtin sub okiAdded stakeWeeklyRate;
+              okiAvailable := reduceOwner;
               totalStaked := newStake;
               forall staker_list addRewards;
               
@@ -588,9 +588,9 @@ transition rewardAll()
               rewardBlocks := newRewardBlock;
               lastReward := currentBlockCycle;
               
-              initialCarb <- carbonLastAmount;
-              balanceCarb <- carbonAvailable;
-              totalrewarded = builtin sub initialCarb balanceCarb;
+              initialOki <- okiLastAmount;
+              balanceOki <- okiAvailable;
+              totalrewarded = builtin sub initialOki balanceOki;
               event_rewardsGiven = { _eventname: "rewardsAwarded"; block: currentBlk; rewardGiven: totalrewarded};
               event event_rewardsGiven
               
@@ -602,18 +602,18 @@ end
 transition rewardCycleRewards()
   currentBlk <- & BLOCKNUMBER;
   currentStake <- totalStaked;
-  carbonAdded <- carbonAvailable;
-  carbonLastAmount := carbonAdded;
+  okiAdded <- okiAvailable;
+  okiLastAmount := okiAdded;
 
   (*Cycle rewards*)
   cycle <- cycleAmount;
   cycleAmount_list = builtin to_list cycle;
-  (*Have to ensure there is enough carbon in contract*)
+  (*Have to ensure there is enough oki in contract*)
   forall cycleAmount_list rewardCycle;
   
-  initialCarb <- carbonLastAmount;
-  balanceCarb <- carbonAvailable;
-  totalrewarded = builtin sub initialCarb balanceCarb;
+  initialOki <- okiLastAmount;
+  balanceOki <- okiAvailable;
+  totalrewarded = builtin sub initialOki balanceOki;
   event_cycleRewardsGiven = { _eventname: "cycleRewardsAwarded"; block: currentBlk; rewardGiven: totalrewarded};
   event event_cycleRewardsGiven
 end
@@ -662,17 +662,17 @@ end
 
 (*Add a remove pending*)
 transition withdrawPending()
-  pending <- pending_carbs[_sender];
-  carbAddr <- carb_addr;
+  pending <- pending_okis[_sender];
+  okiAddr <- oki_addr;
   match pending with
     | Some pending =>
-      delete pending_carbs[_sender];
-      msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: zero;
+      delete pending_okis[_sender];
+      msg = {_tag : "Transfer"; _recipient: okiAddr; _amount: zero;
               to: _sender; amount: pending};
       msgs = one_msg msg;
       send msgs
     | None =>
-    (*No pending carbs*)
+    (*No pending okis*)
     err = CodeNoPending;
     ThrowError err
   end
@@ -773,7 +773,7 @@ end
 transition withdrawStake()
   current_block <- & BLOCKNUMBER;
   blocks_required <- removeBlock[_sender];
-  carbAddr <- carb_addr;
+  okiAddr <- oki_addr;
   total_unstake <- totalUnstaked;
   match blocks_required with
     | None =>
@@ -788,7 +788,7 @@ transition withdrawStake()
             | Some amount =>
               newUnstaked = builtin sub total_unstake amount;
               totalUnstaked := newUnstaked;
-              msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: Uint128 0;
+              msg = {_tag : "Transfer"; _recipient: okiAddr; _amount: Uint128 0;
                       to: _sender; amount: amount};
               msgs = one_msg msg;
               send msgs;
@@ -804,13 +804,13 @@ transition withdrawStake()
 end
 
 transition instantWithdrawal()
-  carbAddr <- carb_addr;
+  okiAddr <- oki_addr;
   rate <- rewardPercent;
   total_unstake <- totalUnstaked;
   penaltyRate <- penalty;
   days <- unstakeDays;
   number_of_stakers <- totalStakers;
-  pool <- carbonAvailable;
+  pool <- okiAvailable;
   amount <- removeStaker[_sender];
   match amount with
     | None =>
@@ -830,7 +830,7 @@ transition instantWithdrawal()
       forall staker_list penaltyToStakers;
       newUnstaked = builtin sub total_unstake amount;
       totalUnstaked := newUnstaked;
-      msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: Uint128 0;
+      msg = {_tag : "Transfer"; _recipient: okiAddr; _amount: Uint128 0;
               to: _sender; amount: returnedAmount};
       msgs = one_msg msg;
       send msgs;
@@ -920,21 +920,21 @@ transition ownerWithdrawAdded (amount: Uint128)
   isOwner = builtin eq _sender owner;
   match isOwner with
     | True =>
-      ownerCarbs <- carbonAvailable;
-      carbAddr <- carb_addr;
-      amountNotOk = builtin lt ownerCarbs amount;
+      ownerOkis <- okiAvailable;
+      okiAddr <- oki_addr;
+      amountNotOk = builtin lt ownerOkis amount;
       match amountNotOk with
         | True =>
           (*Exceed available*)
           err = CodeExceedAvailable;
           ThrowError err
         | False =>
-          msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: zero;
+          msg = {_tag : "Transfer"; _recipient: okiAddr; _amount: zero;
                   to: owner; amount: amount};
           msgs = one_msg msg;
           send msgs;
-          newAmount = builtin sub ownerCarbs amount;
-          carbonAvailable := newAmount
+          newAmount = builtin sub ownerOkis amount;
+          okiAvailable := newAmount
       end
     | False =>
       err = CodeIsNotSender;
@@ -1098,14 +1098,14 @@ transition changeMinimumStake(amount: Uint128)
 end
 
 
-(*When Carbon is sent to contract address*)
+(*When Oki is sent to contract address*)
 transition RecipientAcceptTransfer(
   sender : ByStr20,
   recipient : ByStr20,
   amount : Uint128
 )
   owner <- current_owner;
-  carbAddr <- carb_addr;
+  okiAddr <- oki_addr;
   isPaused <- pauseStake;
   allowAll <- useWhitelist;
   pendingAdd <- pendingAddStake[sender];
@@ -1122,16 +1122,16 @@ transition RecipientAcceptTransfer(
         | False =>
           match isOwner with
             | True =>
-              current_supply <- carbonAvailable;
+              current_supply <- okiAvailable;
               newSupply = builtin add current_supply amount;
-              carbonAvailable := newSupply
+              okiAvailable := newSupply
             | False =>
               minimumStake amount;
               match allowAll with
                 | False =>
-                  (*Check if sender is coming from Carbon Address only authentic token paid would be accepted*)
-                  isCarbContract = builtin eq carbAddr _sender;
-                  match isCarbContract with
+                  (*Check if sender is coming from Oki Address only authentic token paid would be accepted*)
+                  isOkiContract = builtin eq okiAddr _sender;
+                  match isOkiContract with
                     | True =>
                       match pendingAdd with
                         | None =>
@@ -1197,9 +1197,9 @@ transition RecipientAcceptTransfer(
                   
                   isWhitelisted sender;
                   
-                  (*Check if sender is coming from Carbon Address only authentic token paid would be accepted*)
-                  isCarbContract = builtin eq carbAddr _sender;
-                  match isCarbContract with
+                  (*Check if sender is coming from Oki Address only authentic token paid would be accepted*)
+                  isOkiContract = builtin eq okiAddr _sender;
+                  match isOkiContract with
                     | True =>
                       match pendingAdd with
                         | None =>
@@ -1275,15 +1275,15 @@ transition TransferSuccessCallBack(
 )
 end
 
-(*Change Carbon Contract Address*)
-transition updateCarbAddress(addr: ByStr20)
+(*Change Oki Contract Address*)
+transition updateOkiAddress(addr: ByStr20)
   owner <- current_owner;
   isOwner = builtin eq owner _sender;
   match isOwner with
     | True =>
-      carb_addr := addr;
+      oki_addr := addr;
       msg  = {_tag : ""; _recipient : _sender; _amount : Uint128 0;
-              code : carbAddressUpdated};
+              code : okiAddressUpdated};
       msgs = one_msg msg;
       send msgs
     | False =>
@@ -1383,7 +1383,7 @@ end
 
 transition transferStakeSuccessfulCallBack(address: ByStr20)
   futureAddr <- futureContract;
-  carbAddr <- carb_addr;
+  okiAddr <- oki_addr;
   isFuture = builtin eq futureAddr _sender;
   match isFuture with
     | True =>
@@ -1398,7 +1398,7 @@ transition transferStakeSuccessfulCallBack(address: ByStr20)
       delete stakers[address];
       delete cycleAmount[address];
       delete cycleCount[address];
-      msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: Uint128 0;
+      msg = {_tag : "Transfer"; _recipient: okiAddr; _amount: Uint128 0;
               to: futureAddr; amount: send_amount};
       msgs = one_msg msg;
       send msgs
@@ -1410,7 +1410,7 @@ end
 
 transition transferUnstakeSuccessfulCallBack(address: ByStr20)
   futureAddr <- futureContract;
-  carbAddr <- carb_addr;
+  okiAddr <- oki_addr;
   isFuture = builtin eq futureAddr _sender;
   match isFuture with
     | True =>
@@ -1421,7 +1421,7 @@ transition transferUnstakeSuccessfulCallBack(address: ByStr20)
       totalUnstaked := newUnstaked;
       delete removeStaker[address];
       delete removeBlock[address];
-      msg = {_tag : "Transfer"; _recipient: carbAddr; _amount: Uint128 0;
+      msg = {_tag : "Transfer"; _recipient: okiAddr; _amount: Uint128 0;
               to: futureAddr; amount: send_amount};
       msgs = one_msg msg;
       send msgs
