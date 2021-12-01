@@ -1,12 +1,12 @@
-# CarbonStakingScilla
-Scilla codes for Carbon Token Staking Contract
+# OkipadStakingScilla
+Scilla codes for Okipad Token Staking Contract
 
 
-carbon testnet: 0x3e1b442f12c57449464c7daa162803765606b81f
+okipad testnet: 0x43cb4182401336fab00bdcda1fc150851d9c3cbd
 <br>
-https://viewblock.io/zilliqa/address/0x3e1b442f12c57449464c7daa162803765606b81f?network=testnet 
+https://viewblock.io/zilliqa/address/zil1g095rqjqzvm04vqtmndpls2ss5wec09ae950h5?network=testnet
 <br>
-staking: https://devex.zilliqa.com/address/0x504f7f08c74130317b414e148c1e355ca2dc49fd?network=https://dev-api.zilliqa.com
+staking: https://viewblock.io/zilliqa/address/zil1k85j7m7q9khjzp7j8gjnqpayvfw6rkssnxwag7?network=testnet
 <br>
 future: https://devex.zilliqa.com/address/0x4ce0291f3d6f98dec8c6158820bdf425b41ebea0?network=https://dev-api.zilliqa.com
 
