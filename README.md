@@ -6,7 +6,7 @@ okipad testnet: 0x43cb4182401336fab00bdcda1fc150851d9c3cbd
 <br>
 https://viewblock.io/zilliqa/address/zil1g095rqjqzvm04vqtmndpls2ss5wec09ae950h5?network=testnet
 <br>
-staking: https://viewblock.io/zilliqa/address/zil1k85j7m7q9khjzp7j8gjnqpayvfw6rkssnxwag7?network=testnet
+staking: https://viewblock.io/zilliqa/address/zil1k8yrpvzw4a77jwjztutzcxunf9plqtkxzqzm40?network=testnet
 <br>
 future: https://devex.zilliqa.com/address/0x4ce0291f3d6f98dec8c6158820bdf425b41ebea0?network=https://dev-api.zilliqa.com
 

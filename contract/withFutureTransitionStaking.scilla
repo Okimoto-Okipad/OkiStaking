@@ -803,42 +803,6 @@ transition withdrawStake()
   end
 end
 
-transition instantWithdrawal()
-  okiAddr <- oki_addr;
-  rate <- rewardPercent;
-  total_unstake <- totalUnstaked;
-  penaltyRate <- penalty;
-  days <- unstakeDays;
-  number_of_stakers <- totalStakers;
-  pool <- okiAvailable;
-  amount <- removeStaker[_sender];
-  match amount with
-    | None =>
-    | Some amount =>
-      onePercent = builtin div amount hundred;
-      penaltyFee = builtin mul onePercent penaltyRate;
-      apyRate = builtin mul onePercent rate;
-      dailyRate = builtin div apyRate year;
-      unbondFee = builtin mul dailyRate days;
-      totalPenalty = builtin add penaltyFee unbondFee;
-      returnedAmount = builtin sub amount totalPenalty;
-      
-      perStaker = builtin div totalPenalty number_of_stakers;
-      penaltyRewardPerStaker := perStaker;
-      stake <- stakers;
-      staker_list = builtin to_list stake;
-      forall staker_list penaltyToStakers;
-      newUnstaked = builtin sub total_unstake amount;
-      totalUnstaked := newUnstaked;
-      msg = {_tag : "Transfer"; _recipient: okiAddr; _amount: Uint128 0;
-              to: _sender; amount: returnedAmount};
-      msgs = one_msg msg;
-      send msgs;
-      delete removeBlock[_sender];
-      delete removeStaker[_sender]
-  end
-end
-
 
 
 
