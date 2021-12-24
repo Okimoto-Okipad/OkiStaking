@@ -137,7 +137,7 @@ field removeStaker: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field removeBlock : Map ByStr20 BNum = Emp ByStr20 BNum
 field totalStaked : Uint128 = Uint128 0
 field totalStakers : Uint128 = Uint128 0
-field minimumStake : Uint128 = Uint128 5000000000
+field minimumStake : Uint128 = Uint128 10000000
 
 (*Cycle related*)
 field cycleCount : Map ByStr20 Int32 = Emp ByStr20 Int32
