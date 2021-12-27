@@ -446,7 +446,6 @@ transition changeRewardBlocks(block: Uint128)
   end
 end
 
-
 transition pauseContract()
   owner <- current_owner;
   currentValue <- pauseStake;
@@ -618,7 +617,6 @@ transition rewardCycleRewards()
   event event_cycleRewardsGiven
 end
 
-
 transition addStakeForOthers(address: ByStr20, amount: Uint128)
   newPair = Pair {(ByStr20) (Uint128)} address amount;
   pendingAddStake[_sender] := newPair;
@@ -630,7 +628,6 @@ end
 transition removePendingAddStakeForOthers()
   delete pendingAddStake[_sender]
 end
-
 
 (*Add a transition for sender to change their culmulative boolean*)
 transition changeCulmulative()
@@ -658,8 +655,6 @@ transition changeCulmulative()
   end
 end
 
-
-
 (*Add a remove pending*)
 transition withdrawPending()
   pending <- pending_okis[_sender];
@@ -677,7 +672,6 @@ transition withdrawPending()
     ThrowError err
   end
 end
-
 
 transition removeStake(amount: Uint128)
   accBalance <- stakers[_sender];
@@ -803,10 +797,6 @@ transition withdrawStake()
   end
 end
 
-
-
-
-
 transition transferStakeToNewContract(address: ByStr20)
   owner <- current_owner;
   isOwner = builtin eq _sender owner;
@@ -851,8 +841,6 @@ transition transferUnstakeToNewContract(address: ByStr20)
   end
 end
 
-
-
 transition changeImplementationContractAddress(address: ByStr20)
   owner <- current_owner;
   isOwner = builtin eq _sender owner;
@@ -864,8 +852,6 @@ transition changeImplementationContractAddress(address: ByStr20)
       ThrowError err
   end
 end
-
-
 
 transition changeFutureContractAddress(address: ByStr20)
   owner <- current_owner;
@@ -1004,7 +990,6 @@ transition useWhitelist ()
   end
 end
 
-
 transition removeWhitelist ()
   owner <- current_owner;
   isOwner = builtin eq _sender owner;
@@ -1060,7 +1045,6 @@ transition changeMinimumStake(amount: Uint128)
       ThrowError err
   end
 end
-
 
 (*When Oki is sent to contract address*)
 transition RecipientAcceptTransfer(
@@ -1256,7 +1240,6 @@ transition updateOkiAddress(addr: ByStr20)
   end
 end
 
-
 transition TransferStakeToNew (staker_address : ByStr20, staked_amount : Uint128, cycleAmount : Uint128, cycleCount : Int32)
   (*Check if its implementation contract*)
   isImplementation _sender;
@@ -1285,7 +1268,6 @@ transition TransferStakeToNew (staker_address : ByStr20, staked_amount : Uint128
   send msgs
 end
 
-
 transition TransferUnstakeToNew(staker_address : ByStr20, unstaked_amount : Uint128, unstaked_blocks : BNum)
   isImplementation _sender;
   pendUnstake <- removeStaker[staker_address];
@@ -1308,9 +1290,6 @@ transition TransferUnstakeToNew(staker_address : ByStr20, unstaked_amount : Uint
   msgs = one_msg msg;
   send msgs
 end
-
-
-
 
 (*Change Owner of Contract*)
 transition RequestOwnershipTransfer(new_owner : ByStr20)

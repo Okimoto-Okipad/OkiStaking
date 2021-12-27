@@ -9,8 +9,8 @@ https://viewblock.io/zilliqa/address/zil1g095rqjqzvm04vqtmndpls2ss5wec09ae950h5?
 staking: 0xb1C830b04eAf7De93a425F162C1B934943F02ec6
 https://viewblock.io/zilliqa/address/zil1k8yrpvzw4a77jwjztutzcxunf9plqtkxzqzm40?network=testnet
 
-testnet launchpad: 0xf1fcb773188cdbbb6fb74b17cb4c3d7d17e212bc
-https://viewblock.io/zilliqa/address/zil1787twucc3ndmkmahfvtuknpa05t7yy4up57e97?network=testnet
+testnet launchpad: 0x565f79c6a0f884090c05ece49678383d7fc31ad4 
+https://viewblock.io/zilliqa/address/zil12e0hn34qlzzqjrq9anjfv7pc84luxxk5933hjj?network=testnet&tab=state
 
 <br>
 future: https://devex.zilliqa.com/address/0x4ce0291f3d6f98dec8c6158820bdf425b41ebea0?network=https://dev-api.zilliqa.com
