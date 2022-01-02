@@ -20,6 +20,21 @@ https://viewblock.io/zilliqa/address/zil12jhxfcsfyaylhrf9gu8lc82ddgvudu4tzvduum
 
 staking mainnet: 0xce7b758d08b477ef4f957fd7be81bb5e0976dcbc
 https://viewblock.io/zilliqa/address/zil1eeahtrggk3m77nu40ltmaqdmtcyhdh9ujahgf6
+
+Test Launchpad (Mainnet):
+0xed56582a655762c4281096bd028a364ad947e30b
+https://viewblock.io/zilliqa/address/zil1a4t9s2n92a3vg2qsj67s9z3kftv50cct2kq7xq
+
+Test Coin (Mainnet): 0xc9cc9c8196901cfa09ee4f5aad19d5b1e05fc884
+https://viewblock.io/zilliqa/address/zil1e8xfeqvkjqw05z0wfad26xw4k8s9ljyy3kj4xu
+
+Final Launchpad (Mainnet HOL):
+0x79d4f98f6062f342993cbbef61b6aa9097b9738f
+https://viewblock.io/zilliqa/address/zil10820nrmqvte59xfuh0hkrd42jztmjuu0u39kn3?tab=state
+
+HoL Coin (Mainnet):
+0x9945a0da3dc74e364da4ea96946c99336013eeb5
+https://viewblock.io/zilliqa/address/zil1n9z6pk3aca8rvndya2tfgmyexdsp8m44gpyrs3?tab=state
 ## Examples
 
 The mainnet carbon contract might be useful:
